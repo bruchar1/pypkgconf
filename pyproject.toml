@@ -1,0 +1,14 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python', 'cffi']
+
+[project]
+name = 'pypkgconf'
+version = '0.1.0'
+description = 'Python bindings to libpkgconf'
+readme = 'README.md'
+requires-python = '>=3.7'
+license = {file = 'LICENSE.txt'}
+authors = [
+  {name = 'Charles Brunet', email = 'charles.brunet@optelgroup.com'},
+]
