@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pypkgconf._libpkgconf import ffi, lib
+from . import flags
+from ._libpkgconf import ffi, lib
 
 import logging
-import os
 import typing as T
 
 
@@ -22,7 +22,7 @@ class PkgconfClient:
 
         self._packages = {}
 
-        want_client_flags = 0
+        want_client_flags = flags.PKGF_NONE
         lib.pkgconf_client_set_flags(self._client, want_client_flags)
 
         # at this point, want_client_flags should be set, so build the dir list
@@ -66,7 +66,7 @@ class PkgconfClient:
 
         try:
             eflag = lib.pkgconf_pkg_cflags(self._client, pkg, unfiltered_list, 2)
-            if eflag != 0:
+            if eflag != flags.ERRF_OK:
                 return None
             
             # TODO: apply filter...
@@ -86,7 +86,7 @@ class PkgconfClient:
 
         try:
             eflag = lib.pkgconf_pkg_libs(self._client, pkg, unfiltered_list, 2)
-            if eflag != 0:
+            if eflag != flags.ERRF_OK:
                 return None
             
             # TODO: apply filter...
@@ -97,14 +97,13 @@ class PkgconfClient:
         finally:
             lib.pkgconf_fragment_free(unfiltered_list)
 
-    def variable(self, package: str, variable_nane: str, define_variable: T.Optional[str]=None) -> T.Optional[str]:
+    def variable(self, package: str, variable_name: str, define_variable: T.Optional[str]=None) -> T.Optional[str]:
         pkg = self._get(package, define_variable)
         if pkg is None:
             return None
         
-        var = lib.pkgconf_tuple_find(self._client, ffi.addressof(pkg.vars), variable_nane.encode())
+        var = lib.pkgconf_tuple_find(self._client, ffi.addressof(pkg.vars), variable_name.encode())
         if var == ffi.NULL:
             return None
         
         return ffi.string(var).decode()
-    

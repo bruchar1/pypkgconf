@@ -2,9 +2,12 @@
 # inside a directory whose name matches the final installation dir
 # to allow in-tree testing
 
+python_files = ['__init__.py', 'flags.py', 'libpkgconf.py']
+
 fs = import('fs')
-fs.copyfile('__init__.py')
-fs.copyfile('libpkgconf.py')
+foreach f: python_files
+    fs.copyfile(f)
+endforeach
 
 py.extension_module(
     '_libpkgconf',
@@ -16,9 +19,6 @@ py.extension_module(
 )
 
 py.install_sources(
-    [
-        '__init__.py',
-        'libpkgconf.py',
-    ],
+    python_files,
     subdir: meson.project_name()
 )
