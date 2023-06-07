@@ -8,6 +8,10 @@ ffibuilder.set_source("_libpkgconf","""
 
 ffibuilder.cdef("""
 typedef struct pkgconf_node_ pkgconf_node_t;
+typedef struct pkgconf_node_ {
+	pkgconf_node_t *prev, *next;
+	void *data;
+} pkgconf_node_t;
 typedef struct {
 	pkgconf_node_t *head, *tail;
 	size_t length;
@@ -25,7 +29,14 @@ typedef enum {
 
 typedef struct pkgconf_dependency_ pkgconf_dependency_t;
 typedef struct pkgconf_tuple_ pkgconf_tuple_t;
-typedef struct pkgconf_fragment_ pkgconf_fragment_t;
+typedef struct pkgconf_fragment_ {
+	pkgconf_node_t iter;
+
+	char type;
+	char *data;
+
+	bool merged;
+} pkgconf_fragment_t;
 typedef struct pkgconf_path_ pkgconf_path_t;
 typedef struct pkgconf_client_ pkgconf_client_t;
 typedef struct pkgconf_cross_personality_ pkgconf_cross_personality_t;
@@ -204,8 +215,11 @@ bool pkgconf_path_relocate(char *buf, size_t buflen);
 void pkgconf_path_copy_list(pkgconf_list_t *dst, const pkgconf_list_t *src);
 
 
-/* custom code */
+/* Python callbacks */
 extern "Python" bool error_handler(const char *msg, const pkgconf_client_t *client, void *data);
+extern "Python" bool filter_cflags(const pkgconf_client_t *client, const pkgconf_fragment_t *frag, void *data);
+extern "Python" bool filter_libs(const pkgconf_client_t *client, const pkgconf_fragment_t *frag, void *data);
+
 """)
 
 if __name__ == "__main__":

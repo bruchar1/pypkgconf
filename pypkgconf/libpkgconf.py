@@ -3,15 +3,74 @@ from __future__ import annotations
 from . import flags
 from ._libpkgconf import ffi, lib
 
+from dataclasses import dataclass, field, fields
 import logging
+import os
 import typing as T
 
 
 @ffi.def_extern()
-def error_handler(msg: str, client: PkgconfClient, data: T.Any) -> bool:
+def error_handler(msg: str, client, data) -> bool:
     """ This is a Python callback to handle errors """
     logging.error(msg.rstrip())
     return True
+
+
+@dataclass(kw_only=True)
+class FilterData:
+    keep_system: bool = False
+    fragment_filter: T.Optional[str] = None
+
+    def __post_init__(self):
+        self._known_flags = {f.metadata.get('type'): f.name for f in fields(self) if 'type' in f.metadata}
+        self._has_filter = any(getattr(self, f) for f in self._known_flags.values())
+        self._other_name = self._known_flags.pop('*', None)
+
+    def filter(self, type: str) -> bool:
+        if self.fragment_filter and type not in self.fragment_filter:
+            return False
+        
+        if type in self._known_flags:
+            if getattr(self, self._known_flags[type]):
+                return True
+
+        elif self._other_name and getattr(self, self._other_name):
+            return True
+        
+        return not self._has_filter
+        
+@dataclass(kw_only=True)
+class CflagFilterData(FilterData):
+    only_I: bool = field(default=False, metadata={'type': 'I'})
+    only_other: bool = field(default=False, metadata={'type': '*'})
+
+
+@dataclass(kw_only=True)
+class LibsFilterData(FilterData):
+    only_ldpath: bool = field(default=False, metadata={'type': 'L'})
+    only_libname: bool = field(default=False, metadata={'type': 'l'})
+    only_other: bool = field(default=False, metadata={'type': '*'})
+
+
+def _filter_func(client, frag, flags: FilterData):
+    if not flags.keep_system and lib.pkgconf_fragment_has_system_dir(client, frag):
+        return False
+    
+    return flags.filter(frag.type.decode())
+
+
+@ffi.def_extern()
+def filter_cflags(client, frag, data) -> bool:
+    flags: CflagFilterData = ffi.from_handle(data)
+
+    return _filter_func(client, frag, flags)
+
+
+@ffi.def_extern()
+def filter_libs(client, frag, data) -> bool:
+    flags: LibsFilterData = ffi.from_handle(data)
+
+    return _filter_func(client, frag, flags)
 
 
 class PkgconfClient:
@@ -57,44 +116,52 @@ class PkgconfClient:
             return None
         return ffi.string(pkg.version).decode()
 
-    def cflags(self, package: str, allow_system_cflags = None) -> T.Optional[str]:
+    def cflags(self, package: str, **kwargs) -> T.Optional[str]:
         pkg = self._get(package)
         if pkg is None:
             return None
 
         unfiltered_list = ffi.new('pkgconf_list_t *')
+        filtered_list = ffi.new('pkgconf_list_t *')
 
         try:
             eflag = lib.pkgconf_pkg_cflags(self._client, pkg, unfiltered_list, 2)
             if eflag != flags.ERRF_OK:
                 return None
             
-            # TODO: apply filter...
+            kwargs.setdefault('keep_system', os.environ.get('PKG_CONFIG_ALLOW_SYSTEM_CFLAGS', False))
+            data = ffi.new_handle(CflagFilterData(**kwargs))
+            lib.pkgconf_fragment_filter(self._client, filtered_list, unfiltered_list, lib.filter_cflags, data)
 
-            result_str = lib.pkgconf_fragment_render(unfiltered_list, False, ffi.NULL)
+            result_str = lib.pkgconf_fragment_render(filtered_list, False, ffi.NULL)
             return ffi.string(result_str).decode()
         
         finally:
+            lib.pkgconf_fragment_free(filtered_list)
             lib.pkgconf_fragment_free(unfiltered_list)
 
-    def libs(self, package: str, static: bool = False, allow_system_libs = None) -> T.Optional[str]:
+    def libs(self, package: str, static: bool = False, **kwargs) -> T.Optional[str]:
         pkg = self._get(package)
         if pkg is None:
             return None
 
         unfiltered_list = ffi.new('pkgconf_list_t *')
+        filtered_list = ffi.new('pkgconf_list_t *')
 
         try:
             eflag = lib.pkgconf_pkg_libs(self._client, pkg, unfiltered_list, 2)
             if eflag != flags.ERRF_OK:
                 return None
             
-            # TODO: apply filter...
+            kwargs.setdefault('keep_system', os.environ.get('PKG_CONFIG_ALLOW_SYSTEM_LIBS', False))
+            data = ffi.new_handle(LibsFilterData(**kwargs))
+            lib.pkgconf_fragment_filter(self._client, filtered_list, unfiltered_list, lib.filter_libs, data)
 
-            result_str = lib.pkgconf_fragment_render(unfiltered_list, False, ffi.NULL)
+            result_str = lib.pkgconf_fragment_render(filtered_list, False, ffi.NULL)
             return ffi.string(result_str).decode()
         
         finally:
+            lib.pkgconf_fragment_free(filtered_list)
             lib.pkgconf_fragment_free(unfiltered_list)
 
     def variable(self, package: str, variable_name: str, define_variable: T.Optional[str]=None) -> T.Optional[str]:
