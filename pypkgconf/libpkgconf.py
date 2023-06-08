@@ -74,19 +74,42 @@ def filter_libs(client, frag, data) -> bool:
     return _filter_func(client, frag, flags)
 
 
+@dataclass(kw_only=True)
+class PkgconfFlags:
+
+    static: bool = False
+
+    @property
+    def flags(self) -> int:
+        f = flags.PKGF_NONE
+
+        if self.static:
+            f |= flags.PKGF_SEARCH_PRIVATE | flags.PKGF_MERGE_PRIVATE_FRAGMENT
+        
+        return f
+    
+    def update(self, **options) -> bool:
+        changed = False
+        for key, value in options.items():
+            if getattr(self, key) != value:
+                changed = True
+                setattr(self, key, value)
+        return changed
+
+
 class PkgconfClient:
 
-    def __init__(self, variables: T.Optional[T.Dict[str, str]] = None):
+    def __init__(self, define_variables: T.Optional[T.Dict[str, str]] = None, **kwargs):
         self._personality = lib.pkgconf_cross_personality_default()
         self._client = lib.pkgconf_client_new(lib.error_handler, ffi.NULL, self._personality)
 
         self._packages = {}
         self._variables = {}
-        if variables:
-            self.define_variables(**variables)
+        if define_variables:
+            self.define_variables(**define_variables)
 
-        want_client_flags = flags.PKGF_NONE
-        lib.pkgconf_client_set_flags(self._client, want_client_flags)
+        self._options = PkgconfFlags(**kwargs)
+        lib.pkgconf_client_set_flags(self._client, self._options.flags)
 
         # at this point, want_client_flags should be set, so build the dir list
         lib.pkgconf_client_dir_list_build(self._client, self._personality)
@@ -103,8 +126,15 @@ class PkgconfClient:
         for key, value in variables.items():
             lib.pkgconf_tuple_define_global(self._client, f'{key}={value}'.encode())
 
+    def set_options(self, **options) -> bool:
+        if self._options.update(**options):
+            lib.pkgconf_client_set_flags(self._client, self._options.flags)
+            lib.pkgconf_cache_free(self._client)
+            return True
+        return False
+        
     @contextmanager
-    def variables(self, **kwargs):
+    def variables_ctx(self, **kwargs):
         current_variables = self._variables.copy()
         self.define_variables(**kwargs)
 
@@ -113,6 +143,17 @@ class PkgconfClient:
         lib.pkgconf_tuple_free_global(self._client)
         self._variables = {}
         self.define_variables(**current_variables)
+
+    @contextmanager
+    def options_ctx(self, **kwargs):
+        current_flags = self._options.flags
+        modified = self.set_options(**kwargs)
+
+        yield
+
+        if modified:
+            lib.pkgconf_client_set_flags(self._client, current_flags)
+            lib.pkgconf_cache_free(self._client)
 
     def _hash(self) -> int:
         """Return a hash for the current state"""

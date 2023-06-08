@@ -25,6 +25,12 @@ class TestLibPkgConf(unittest.TestCase):
 
         self.assertEqual('-lsimple', client.libs('simple'))
 
+    def test_simple_libs_static(self):
+        client = PkgconfClient()
+
+        with client.options_ctx(static=True):
+            self.assertEqual('-lsimple -lm', client.libs('simple'))
+
     def test_simple_variable(self):
         client = PkgconfClient()
 
@@ -33,7 +39,7 @@ class TestLibPkgConf(unittest.TestCase):
     def test_simple_variable_define(self):
         client = PkgconfClient()
 
-        with client.variables(prefix='/opt'):
+        with client.variables_ctx(prefix='/opt'):
             self.assertEqual('/opt/lib', client.variable('simple', 'libdir'))
 
     def test_libs_other_only_ldpath(self):
