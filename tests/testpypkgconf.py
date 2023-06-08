@@ -33,7 +33,8 @@ class TestLibPkgConf(unittest.TestCase):
     def test_simple_variable_define(self):
         client = PkgconfClient()
 
-        self.assertEqual('/opt/lib', client.variable('simple', 'libdir', define_variable='prefix=/opt'))
+        with client.variables(prefix='/opt'):
+            self.assertEqual('/opt/lib', client.variable('simple', 'libdir'))
 
     def test_libs_other_only_ldpath(self):
         client = PkgconfClient()

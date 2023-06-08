@@ -13,7 +13,10 @@ py.extension_module(
     '_libpkgconf',
     [c_bindings],
     dependencies: [libpkgconf_dep],
-    c_args: ['-DPKGCONFIG_IS_STATIC'],
+    c_args: [
+        '-DPKGCONFIG_IS_STATIC',  # workaround until the dep contains it
+        '-D_CFFI_NO_LIMITED_API',  # workaround until meson support it
+    ],
     install: true,
     subdir: meson.project_name()
 )

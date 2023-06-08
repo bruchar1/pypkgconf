@@ -4,6 +4,7 @@ from . import flags
 from ._libpkgconf import ffi, lib
 
 from dataclasses import dataclass, field, fields
+from contextlib import contextmanager
 import logging
 import os
 import typing as T
@@ -75,11 +76,14 @@ def filter_libs(client, frag, data) -> bool:
 
 class PkgconfClient:
 
-    def __init__(self):
+    def __init__(self, variables: T.Optional[T.Dict[str, str]] = None):
         self._personality = lib.pkgconf_cross_personality_default()
         self._client = lib.pkgconf_client_new(lib.error_handler, ffi.NULL, self._personality)
 
         self._packages = {}
+        self._variables = {}
+        if variables:
+            self.define_variables(**variables)
 
         want_client_flags = flags.PKGF_NONE
         lib.pkgconf_client_set_flags(self._client, want_client_flags)
@@ -94,19 +98,33 @@ class PkgconfClient:
         lib.pkgconf_cross_personality_deinit(self._personality)
         lib.pkgconf_client_free(self._client)
 
-    def _get(self, package: str, define_variable: T.Optional[str]=None):
-        key = (package, define_variable)
-        if key not in self._packages:
-            if define_variable:
-                lib.pkgconf_tuple_define_global(self._client, define_variable.encode())
+    def define_variables(self, **variables):
+        self._variables.update(variables)
+        for key, value in variables.items():
+            lib.pkgconf_tuple_define_global(self._client, f'{key}={value}'.encode())
 
+    @contextmanager
+    def variables(self, **kwargs):
+        current_variables = self._variables.copy()
+        self.define_variables(**kwargs)
+
+        yield
+
+        lib.pkgconf_tuple_free_global(self._client)
+        self._variables = {}
+        self.define_variables(**current_variables)
+
+    def _hash(self) -> int:
+        """Return a hash for the current state"""
+        return hash(tuple(sorted(self._variables.items())))
+
+    def _get(self, package: str):
+        key = (package, self._hash())
+        if key not in self._packages:
             pkg = lib.pkgconf_pkg_find(self._client, package.encode())
             if pkg is None:
                 lib.pkgconf_error(self._client, f"Package '{package}' was not found\n")
             self._packages[key] = pkg
-
-            if define_variable:
-                lib.pkgconf_tuple_free_global(self._client)
 
         return self._packages[key]
 
@@ -164,8 +182,8 @@ class PkgconfClient:
             lib.pkgconf_fragment_free(filtered_list)
             lib.pkgconf_fragment_free(unfiltered_list)
 
-    def variable(self, package: str, variable_name: str, define_variable: T.Optional[str]=None) -> T.Optional[str]:
-        pkg = self._get(package, define_variable)
+    def variable(self, package: str, variable_name: str) -> T.Optional[str]:
+        pkg = self._get(package)
         if pkg is None:
             return None
         
