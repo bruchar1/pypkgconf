@@ -74,6 +74,23 @@ def filter_libs(client, frag, data) -> bool:
     return _filter_func(client, frag, flags)
 
 
+class NodeIter:
+
+    def __init__(self, pkgconf_list, ctype: str = "pkgconf_tuple_t*"):
+        self._cur = pkgconf_list.head
+        self._ctype = ctype
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._cur == ffi.NULL:
+            raise StopIteration
+        data = self._cur.data
+        self._cur = self._cur.next
+        return ffi.cast(self._ctype, data)
+
+
 @dataclass(kw_only=True)
 class PkgconfFlags:
 
@@ -233,3 +250,13 @@ class PkgconfClient:
             return None
         
         return ffi.string(var).decode()
+
+    def list_variables(self, package: str) -> T.Optional[T.List[str]]:
+        pkg = self._get(package)
+        if pkg is None:
+            return None
+        
+        variables = []
+        for variable in NodeIter(pkg.vars):
+            variables.append(ffi.string(variable.key).decode())
+        return variables

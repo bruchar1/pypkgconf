@@ -14,4 +14,4 @@ authors = [
 ]
 
 [tool.meson-python.args]
-install = ['--tags=runtime,python-runtime']
+# install = ['--tags=runtime,python-runtime']

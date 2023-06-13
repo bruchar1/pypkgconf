@@ -42,6 +42,24 @@ class TestLibPkgConf(unittest.TestCase):
         with client.variables_ctx(prefix='/opt'):
             self.assertEqual('/opt/lib', client.variable('simple', 'libdir'))
 
+    def test_simple_list_variables(self):
+        client = PkgconfClient()
+
+        self.assertEqual({
+            'exec_prefix',
+            'includedir',
+            'libdir',
+            'pcfiledir',
+            'prefix',
+        }, set(client.list_variables('simple')))
+
+    def test_list_no_variables(self):
+        client = PkgconfClient()
+
+        self.assertEqual({
+            'pcfiledir',
+        }, set(client.list_variables('no-variables')))
+
     def test_libs_other_only_ldpath(self):
         client = PkgconfClient()
 
