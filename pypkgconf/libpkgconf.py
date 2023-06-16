@@ -138,7 +138,10 @@ class PkgconfClient:
         lib.pkgconf_cross_personality_deinit(self._personality)
         lib.pkgconf_client_free(self._client)
 
-    def define_variables(self, **variables):
+    def version(self) -> T.Optional[str]:
+        return self.modversion('pkgconf')
+
+    def define_variables(self, **variables) -> None:
         self._variables.update(variables)
         for key, value in variables.items():
             lib.pkgconf_tuple_define_global(self._client, f'{key}={value}'.encode())

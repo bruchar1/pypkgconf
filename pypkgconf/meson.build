@@ -18,7 +18,7 @@ py.extension_module(
         '-D_CFFI_NO_LIMITED_API',  # workaround until meson support it
     ],
     install: true,
-    subdir: meson.project_name()
+    subdir: meson.project_name(),
 )
 
 py.install_sources(

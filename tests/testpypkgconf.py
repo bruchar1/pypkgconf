@@ -10,6 +10,12 @@ class TestLibPkgConf(unittest.TestCase):
         os.environ['PKG_CONFIG_SYSTEM_INCLUDE_PATH'] = '/usr/include'
         os.environ['PKG_CONFIG_SYSTEM_LIBRARY_PATH'] = os.pathsep.join(('/usr/lib', '/lib'))
 
+    def test_version(self):
+        client = PkgconfClient()
+
+        version = tuple(map(int, client.version().split('.')))
+        self.assertGreaterEqual(version, (1, 9, 5))
+
     def test_simple_modversion(self):
         client = PkgconfClient()
 
