@@ -1,6 +1,6 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python', 'cffi']
+requires = ['meson-python@git+https://github.com/mesonbuild/meson-python.git', 'cffi']
 
 [project]
 name = 'pypkgconf'
@@ -14,4 +14,5 @@ authors = [
 ]
 
 [tool.meson-python.args]
-# install = ['--tags=runtime,python-runtime']
+install = ['--tags=runtime,python-runtime']  # does not work: https://github.com/mesonbuild/meson-python/issues/421
+# install = ['--skip-subprojects']

@@ -11,7 +11,7 @@ pkgconf_proj = subproject('pkgconf', default_options: ['default_library=static']
 libpkgconf_dep = dependency('libpkgconf')
 
 pymod = import('python')
-py = pymod.find_installation(modules: ['cffi'], pure: true)
+py = pymod.find_installation(modules: ['cffi'], pure: false)
 
 libpkgconf_c = '_libpkgconf.c'
 
