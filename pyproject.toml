@@ -1,6 +1,6 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python@git+https://github.com/mesonbuild/meson-python.git', 'cffi']
+requires = ['meson-python >= 0.13.2', 'cffi']
 
 [project]
 name = 'pypkgconf'
@@ -12,7 +12,10 @@ license = {file = 'LICENSE.txt'}
 authors = [
   {name = 'Charles Brunet', email = 'charles.brunet@optelgroup.com'},
 ]
+dependencies = [
+  'cffi',
+]
 
 [tool.meson-python.args]
-install = ['--tags=runtime,python-runtime']  # does not work: https://github.com/mesonbuild/meson-python/issues/421
+install = ['--tags=runtime,python-runtime']
 # install = ['--skip-subprojects']

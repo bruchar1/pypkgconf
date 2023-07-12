@@ -12,6 +12,7 @@ typedef struct pkgconf_node_ {
 	pkgconf_node_t *prev, *next;
 	void *data;
 } pkgconf_node_t;
+
 typedef struct {
 	pkgconf_node_t *head, *tail;
 	size_t length;
@@ -27,15 +28,14 @@ typedef enum {
 	PKGCONF_CMP_GREATER_THAN_EQUAL
 } pkgconf_pkg_comparator_t;
 
+typedef struct pkgconf_pkg_ pkgconf_pkg_t;
 typedef struct pkgconf_dependency_ pkgconf_dependency_t;
-typedef struct pkgconf_tuple_ {
-	pkgconf_node_t iter;
+typedef struct pkgconf_tuple_ pkgconf_tuple_t;
+typedef struct pkgconf_fragment_ pkgconf_fragment_t;
+typedef struct pkgconf_path_ pkgconf_path_t;
+typedef struct pkgconf_client_ pkgconf_client_t;
+typedef struct pkgconf_cross_personality_ pkgconf_cross_personality_t;
 
-	char *key;
-	char *value;
-
-	unsigned int flags;
-} pkgconf_tuple_t;
 typedef struct pkgconf_fragment_ {
 	pkgconf_node_t iter;
 
@@ -44,9 +44,39 @@ typedef struct pkgconf_fragment_ {
 
 	bool merged;
 } pkgconf_fragment_t;
-typedef struct pkgconf_path_ pkgconf_path_t;
-typedef struct pkgconf_client_ pkgconf_client_t;
-typedef struct pkgconf_cross_personality_ pkgconf_cross_personality_t;
+
+typedef struct pkgconf_dependency_ {
+	pkgconf_node_t iter;
+
+	char *package;
+	pkgconf_pkg_comparator_t compare;
+	char *version;
+	pkgconf_pkg_t *parent;
+	pkgconf_pkg_t *match;
+
+	unsigned int flags;
+
+	int refcount;
+	pkgconf_client_t *owner;
+} pkgconf_dependency_t;
+
+typedef struct pkgconf_tuple_ {
+	pkgconf_node_t iter;
+
+	char *key;
+	char *value;
+
+	unsigned int flags;
+} pkgconf_tuple_t;
+
+typedef struct pkgconf_path_ {
+	pkgconf_node_t lnode;
+
+	char *path;
+	void *handle_path;
+	void *handle_device;
+} pkgconf_path_t;
+
 
 typedef struct pkgconf_pkg_ {
 	int refcount;
@@ -92,6 +122,54 @@ typedef bool (*pkgconf_pkg_iteration_func_t)(const pkgconf_pkg_t *pkg, void *dat
 typedef void (*pkgconf_pkg_traverse_func_t)(pkgconf_client_t *client, pkgconf_pkg_t *pkg, void *data);
 typedef bool (*pkgconf_queue_apply_func_t)(pkgconf_client_t *client, pkgconf_pkg_t *world, void *data, int maxdepth);
 typedef bool (*pkgconf_error_handler_func_t)(const char *msg, const pkgconf_client_t *client, void *data);
+
+typedef struct pkgconf_client_ {
+	pkgconf_list_t dir_list;
+
+	pkgconf_list_t filter_libdirs;
+	pkgconf_list_t filter_includedirs;
+
+	pkgconf_list_t global_vars;
+
+	void *error_handler_data;
+	void *warn_handler_data;
+	void *trace_handler_data;
+
+	pkgconf_error_handler_func_t error_handler;
+	pkgconf_error_handler_func_t warn_handler;
+	pkgconf_error_handler_func_t trace_handler;
+
+	FILE *auditf;
+
+	char *sysroot_dir;
+	char *buildroot_dir;
+
+	unsigned int flags;
+
+	char *prefix_varname;
+
+	bool already_sent_notice;
+
+	uint64_t serial;
+
+	pkgconf_pkg_t **cache_table;
+	size_t cache_count;
+} pkgconf_client_t;
+
+typedef struct pkgconf_cross_personality_ {
+	const char *name;
+
+	pkgconf_list_t dir_list;
+
+	pkgconf_list_t filter_libdirs;
+	pkgconf_list_t filter_includedirs;
+
+	char *sysroot_dir;
+
+	bool want_default_static;
+	bool want_default_pure;
+} pkgconf_cross_personality_t;
+
 
 void pkgconf_client_init(pkgconf_client_t *client, pkgconf_error_handler_func_t error_handler, void *error_handler_data, const pkgconf_cross_personality_t *personality);
 pkgconf_client_t * pkgconf_client_new(pkgconf_error_handler_func_t error_handler, void *error_handler_data, const pkgconf_cross_personality_t *personality);
